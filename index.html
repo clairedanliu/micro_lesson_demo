@@ -183,108 +183,186 @@
            1. AI API 封装 (Gemini Vision 动态解析)
         ========================================================= */
         const callGeminiAPI = async (base64Data, mimeType) => {
-            const apiKey = "AIzaSyAfPyJ_5gCvWPCXt8E5Zlbt7HZgwlUCw0w"; 
-            
-            // 升级至 v1 稳定版接口
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            
-            const promptText = `
-            You are an expert Math Tutor. Analyze the math problem in the provided image.
-            1. Extract the problem text and solve it step-by-step.
-            2. Generate a 3-level interactive Micro-Lesson based on the problem.
-            
-            CRITICAL INSTRUCTION: For 'interaction_type' in the lessons, ONLY use "multiple_choice". DO NOT use "clickable_text" to avoid frontend indexing errors.
-            
-            Return ONLY a valid JSON object strictly matching this schema:
+    const apiKey = "AIzaSyCu_I6xyphhO475DJpuKaH0LgEi4QicmVU";
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const promptText = `
+You are an expert Math Tutor.
+
+Analyze the math problem in the provided image.
+
+You must do these things:
+1. Extract the full problem text from the image.
+2. Solve it step by step.
+3. If there are multiple-choice options, preserve them.
+4. Generate a 3-level interactive micro-lesson.
+
+Very important rules:
+- Return ONLY valid JSON.
+- Do not add markdown fences.
+- interaction_type must always be "multiple_choice".
+- Keep the content concise and mobile-friendly.
+- Make sure the math is correct.
+
+Return this exact JSON structure:
+{
+  "problemContext": {
+    "title": "Topic",
+    "question_text": "Full extracted question text",
+    "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+    "correct_answer": "Correct answer",
+    "explanation_steps": [
+      { "title": "Step 1", "content": "..." },
+      { "title": "Step 2", "content": "..." }
+    ]
+  },
+  "teachingModeLesson": {
+    "lesson_id": "lvl1",
+    "mode": "TEACHING",
+    "scaffolding_level": 1,
+    "problem_context": "Short summary",
+    "steps": [
+      {
+        "step_id": 1,
+        "goal": "Understand concept",
+        "interaction_type": "multiple_choice",
+        "question_display": { "text": "Question text" },
+        "interaction_data": {
+          "options": ["Option 1", "Option 2"],
+          "correct_index": 0
+        },
+        "feedback_card": {
+          "correct_message": "Correct!",
+          "explanation": "Why correct",
+          "wrong_explanation": "Try again"
+        }
+      }
+    ],
+    "outcome_card": {
+      "visual_badge": { "title": "Skill Unlocked", "icon_concept": "puzzle-piece" },
+      "memory_hook": { "core_formula": "Formula", "one_liner": "Takeaway" },
+      "actions": {
+        "primary_button": { "label": "Back to Solution" },
+        "secondary_button": { "label": "Practice One More" }
+      }
+    }
+  },
+  "practiceModeLesson": {
+    "lesson_id": "lvl2",
+    "mode": "PRACTICE",
+    "scaffolding_level": 2,
+    "problem_context": "A new variant problem",
+    "steps": [
+      {
+        "step_id": 1,
+        "goal": "Practice setup",
+        "interaction_type": "multiple_choice",
+        "question_display": { "text": "Question text" },
+        "interaction_data": {
+          "options": ["Option 1", "Option 2"],
+          "correct_index": 0
+        },
+        "feedback_card": {
+          "correct_message": "Correct!",
+          "explanation": "Why correct",
+          "wrong_explanation": "Try again"
+        }
+      }
+    ],
+    "outcome_card": {
+      "visual_badge": { "title": "Level 2 Complete", "icon_concept": "star" },
+      "memory_hook": { "core_formula": "Formula", "one_liner": "Takeaway" },
+      "actions": {
+        "primary_button": { "label": "Finish" },
+        "secondary_button": { "label": "Mastery Challenge" }
+      }
+    }
+  },
+  "masteryModeLesson": {
+    "lesson_id": "lvl3",
+    "mode": "MASTERY",
+    "scaffolding_level": 3,
+    "problem_context": "Another new variant problem",
+    "steps": [
+      {
+        "step_id": 1,
+        "goal": "Mastery check",
+        "interaction_type": "multiple_choice",
+        "question_display": { "text": "Question text" },
+        "interaction_data": {
+          "options": ["Option 1", "Option 2"],
+          "correct_index": 0
+        },
+        "feedback_card": {
+          "correct_message": "Correct!",
+          "explanation": "Why correct",
+          "wrong_explanation": "Try again"
+        }
+      }
+    ],
+    "outcome_card": {
+      "visual_badge": { "title": "Mastery Unlocked", "icon_concept": "trophy" },
+      "memory_hook": { "core_formula": "Formula", "one_liner": "Takeaway" },
+      "actions": {
+        "primary_button": { "label": "Done" },
+        "secondary_button": { "label": "Practice Again" }
+      }
+    }
+  }
+}
+`;
+
+    const payload = {
+        contents: [
             {
-              "problemContext": {
-                "title": "Topic (e.g., Algebra, Statistics)",
-                "question_text": "Extracted full question text",
-                "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
-                "correct_answer": "The correct option",
-                "explanation_steps": [
-                  { "title": "Step 1", "content": "Explanation text" },
-                  { "title": "Step 2", "content": "Explanation text" }
-                ]
-              },
-              "teachingModeLesson": {
-                "lesson_id": "lvl1", "mode": "TEACHING", "scaffolding_level": 1,
-                "problem_context": "Short summary of the original problem",
-                "steps": [
-                  {
-                    "step_id": 1, "goal": "Understand concept", "interaction_type": "multiple_choice",
-                    "question_display": { "text": "Question for user using Markdown **bold**" },
-                    "interaction_data": { "options": ["Option 1", "Option 2"], "correct_index": 0 },
-                    "feedback_card": { "correct_message": "Correct!", "explanation": "Why it's correct", "wrong_explanation": "Try again" }
-                  }
-                ],
-                "outcome_card": {
-                  "visual_badge": { "title": "Skill Unlocked", "icon_concept": "puzzle-piece" },
-                  "memory_hook": { "core_formula": "Formula", "one_liner": "Takeaway" },
-                  "actions": { "primary_button": { "label": "Back to Solution" }, "secondary_button": { "label": "Practice One More" } }
-                }
-              },
-              "practiceModeLesson": {
-                "lesson_id": "lvl2", "mode": "PRACTICE", "scaffolding_level": 2,
-                "problem_context": "A NEW variant problem with DIFFERENT numbers",
-                "steps": [ /* 2 steps testing the variant */ ],
-                "outcome_card": { "visual_badge": { "title": "Level 2 Complete", "icon_concept": "star" }, "memory_hook": {"core_formula": "...", "one_liner": "..."}, "actions": {"primary_button": {"label": "Finish"}, "secondary_button": {"label": "Mastery Challenge"}} }
-              },
-              "masteryModeLesson": {
-                "lesson_id": "lvl3", "mode": "MASTERY", "scaffolding_level": 3,
-                "problem_context": "ANOTHER NEW variant problem",
-                "steps": [ /* 1 speed test step */ ],
-                "outcome_card": { "visual_badge": { "title": "Mastery Unlocked", "icon_concept": "trophy" }, "memory_hook": {"core_formula": "...", "one_liner": "..."}, "actions": {"primary_button": {"label": "Done"}, "secondary_button": {"label": "Practice Again"}} }
-              }
-            }`;
-
-            const payload = {
-                contents: [{
-                    role: "user",
-                    parts: [
-                        { text: promptText },
-                        { inlineData: { mimeType: mimeType, data: base64Data } }
-                    ]
-                }],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.2 // 降低随机性保证 JSON 格式正确
-                }
-            };
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                // 更详尽的错误解析机制
-                if (!response.ok) {
-                    let realError = `HTTP ${response.status}`;
-                    try {
-                        const errData = await response.json();
-                        if (errData.error && errData.error.message) {
-                            realError = `HTTP ${response.status}: ${errData.error.message}`;
+                parts: [
+                    { text: promptText },
+                    {
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: base64Data
                         }
-                    } catch(e) {}
-                    throw new Error(realError);
-                }
-                
-                const data = await response.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!text) throw new Error('Google API 返回内容为空');
-                
-                const match = text.match(/\{[\s\S]*\}/);
-                if (!match) throw new Error('未找到有效的结构化解析数据');
-                
-                return JSON.parse(match[0]);
-            } catch (err) {
-                // 抛出带有具体上下文的错误
-                throw new Error(err.message);
+                    }
+                ]
             }
-        };
+        ]
+    };
 
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data?.error?.message || `HTTP ${response.status}`);
+        }
+
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!text) {
+            throw new Error("Gemini returned empty content");
+        }
+
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            const match = text.match(/\{[\s\S]*\}/);
+            if (!match) {
+                throw new Error("Model did not return valid JSON");
+            }
+            return JSON.parse(match[0]);
+        }
+    } catch (err) {
+        throw new Error(err.message || "Gemini request failed");
+    }
+};
         /* =========================================================
            2. 图标组件 (Icons)
         ========================================================= */
@@ -299,105 +377,204 @@
            3. 视图一：极简拍照/相册入口页 (Camera View)
         ========================================================= */
         const CameraView = ({ onPhotoProcessed }) => {
-            const [isAnalyzing, setIsAnalyzing] = React.useState(false);
-            const [errorMsg, setErrorMsg] = React.useState('');
-            const cameraInputRef = React.useRef(null);
-            const galleryInputRef = React.useRef(null);
 
-            // 拦截图片并调用真实 AI 接口
-            const handleFileChange = (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+const [errorMsg, setErrorMsg] = React.useState('');
 
-                setIsAnalyzing(true);
-                setErrorMsg('');
+const galleryInputRef = React.useRef(null);
+const videoRef = React.useRef(null);
+const canvasRef = React.useRef(null);
+const streamRef = React.useRef(null);
 
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    // 提取 Base64 数据部分
-                    const base64String = reader.result.split(',')[1];
-                    const mimeType = file.type;
-                    
-                    try {
-                        const parsedData = await callGeminiAPI(base64String, mimeType);
-                        setIsAnalyzing(false);
-                        onPhotoProcessed(parsedData);
-                    } catch (err) {
-                        setIsAnalyzing(false);
-                        // 输出真实报错，并显示兜底按钮
-                        setErrorMsg(err.message);
-                    }
-                };
-                reader.readAsDataURL(file);
-            };
+const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-            return (
-                <div className="flex flex-col h-full w-full bg-[#1C1C1E] text-white relative fade-in">
-                    
-                    {/* AI 识别时的扫描动画遮罩 */}
-                    {isAnalyzing && (
-                        <div className="absolute inset-0 bg-black/85 z-50 flex flex-col items-center justify-center fade-in backdrop-blur-sm">
-                            <div className="scan-line"></div>
-                            <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                            <p className="text-xl font-bold tracking-widest animate-pulse text-white">Analyzing...</p>
-                            <p className="text-sm text-gray-400 mt-2">AI 正在深度解析题目结构</p>
-                        </div>
-                    )}
+    setIsAnalyzing(true);
+    setErrorMsg('');
 
-                    {/* 🔥 终极防灾设计：如果报错，弹窗中附带“使用预置数据”直接绕过报错的功能 */}
-                    {errorMsg && (
-                        <div className="absolute top-10 left-4 right-4 bg-red-500/95 text-white p-5 rounded-2xl z-50 text-sm font-medium text-center backdrop-blur-md shadow-2xl fade-in flex flex-col gap-4">
-                            <div><i className="fas fa-exclamation-triangle mr-2"></i> {errorMsg}</div>
-                            <div className="text-xs opacity-80 border-t border-white/20 pt-2 pb-1">
-                                可能是本地网络代理导致了连接失败，建议为此次演示使用保底数据。
-                            </div>
-                            <div className="flex flex-col sm:flex-row justify-center gap-3">
-                                <button onClick={() => onPhotoProcessed(fallbackMockData)} className="flex-1 py-2.5 bg-white text-red-600 font-bold rounded-xl hover:bg-gray-50 transition shadow-sm active:scale-95">
-                                    使用预置题目继续 Demo
-                                </button>
-                                <button onClick={() => setErrorMsg('')} className="py-2.5 px-4 bg-black/20 rounded-xl hover:bg-black/30 transition active:scale-95">
-                                    关闭
-                                </button>
-                            </div>
-                        </div>
-                    )}
+    const reader = new FileReader();
 
-                    {/* 隐藏的原生文件选择器 */}
-                    <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
-                    <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleFileChange} />
+    reader.onloadend = async () => {
+        const base64String = reader.result.split(',')[1];
+        const mimeType = file.type;
 
-                    {/* 中间取景框与对焦提示 */}
-                    <div className="flex-1 flex flex-col items-center justify-center relative">
-                        <div className="absolute w-72 h-48 sm:h-64 border-[rgba(255,255,255,0.1)]">
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white/80 rounded-tl-xl"></div>
-                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white/80 rounded-tr-xl"></div>
-                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white/80 rounded-bl-xl"></div>
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white/80 rounded-br-xl"></div>
-                        </div>
-                        <div className="text-5xl text-white/30 font-thin">+</div>
-                    </div>
+        try {
+            const parsedData = await callGeminiAPI(base64String, mimeType);
+            setIsAnalyzing(false);
+            onPhotoProcessed(parsedData);
+        } catch (err) {
+            setIsAnalyzing(false);
+            setErrorMsg(err.message);
+        }
+    };
 
-                    {/* 底部极简操作栏：仅相册 & 拍照 */}
-                    <div className="h-40 bg-[#1C1C1E] flex items-center justify-center relative pb-8">
-                        <button 
-                            onClick={() => galleryInputRef.current.click()} 
-                            className="absolute left-10 p-4 hover:bg-white/10 rounded-full transition-colors"
-                        >
-                            <Icons.Gallery />
-                        </button>
-                        
-                        <button 
-                            onClick={() => cameraInputRef.current.click()} 
-                            className="relative flex justify-center items-center group active:scale-95 transition-transform"
-                        >
-                            <div className="w-[80px] h-[80px] rounded-full border-[4px] border-white flex items-center justify-center">
-                                <div className="w-[64px] h-[64px] bg-[#FF3B30] rounded-full group-hover:bg-[#ff4f44] transition-colors"></div>
-                            </div>
-                        </button>
-                    </div>
+    reader.readAsDataURL(file);
+};
+
+
+React.useEffect(() => {
+
+    const startCamera = async () => {
+
+        try {
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: "environment" }
+                },
+                audio: false
+            });
+
+            streamRef.current = stream;
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play();
+            }
+
+        } catch (err) {
+
+            setErrorMsg("Camera access failed: " + err.message);
+
+        }
+
+    };
+
+    startCamera();
+
+    return () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+    };
+
+}, []);
+
+
+const capturePhoto = async () => {
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas) return;
+
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.drawImage(video, 0, 0, width, height);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
+    const base64String = dataUrl.split(',')[1];
+
+    setIsAnalyzing(true);
+
+    try {
+
+        const parsedData = await callGeminiAPI(base64String, "image/jpeg");
+
+        setIsAnalyzing(false);
+
+        onPhotoProcessed(parsedData);
+
+    } catch (err) {
+
+        setIsAnalyzing(false);
+
+        setErrorMsg(err.message);
+
+    }
+
+};
+
+
+return (
+
+    <div className="flex flex-col h-full w-full bg-[#1C1C1E] text-white relative">
+
+        {isAnalyzing && (
+
+            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
+
+                <div className="w-14 h-14 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+
+                <div className="text-lg font-bold">Analyzing...</div>
+
+            </div>
+
+        )}
+
+
+        {errorMsg && (
+
+            <div className="absolute top-10 left-4 right-4 bg-red-500 text-white p-4 rounded-xl text-center z-50">
+
+                {errorMsg}
+
+            </div>
+
+        )}
+
+
+        <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={galleryInputRef}
+            onChange={handleFileChange}
+        />
+
+
+        <div className="flex-1 relative bg-black overflow-hidden">
+
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+            />
+
+            <canvas ref={canvasRef} className="hidden" />
+
+        </div>
+
+
+        <div className="h-40 flex items-center justify-center relative">
+
+            <button
+                onClick={() => galleryInputRef.current.click()}
+                className="absolute left-10 p-4"
+            >
+                <Icons.Gallery />
+            </button>
+
+            <button
+                onClick={capturePhoto}
+                className="relative flex justify-center items-center"
+            >
+
+                <div className="w-[80px] h-[80px] rounded-full border-[4px] border-white flex items-center justify-center">
+
+                    <div className="w-[64px] h-[64px] bg-[#FF3B30] rounded-full"></div>
+
                 </div>
-            );
-        };
+
+            </button>
+
+        </div>
+
+    </div>
+
+);
+
+};
 
         /* =========================================================
            4. 视图二：拍搜结果页 (Result View)
