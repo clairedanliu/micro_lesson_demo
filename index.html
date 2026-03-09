@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gauth Micro-Lesson Full Experience</title>
+    <!-- 引入 React 和 Tailwind CSS 以支持快速原型开发 -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #E5E7EB; 
+            color: #1F2937; 
+            -webkit-tap-highlight-color: transparent; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+        }
+        
+        /* 模拟手机容器 (iPhone 15 Pro Max 比例) */
+        #root { 
+            width: 100%; 
+            height: 100vh; 
+            background-color: #fff; 
+            position: relative; 
+            overflow: hidden; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.15); 
+        }
+
+        @media (min-width: 480px) {
+            #root { 
+                width: 430px; 
+                height: 932px; 
+                max-height: 95vh;
+                border-radius: 55px;
+                border: 10px solid #111827; 
+            }
+        }
+
+        /* 基础动画体系 */
+        .fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .bounce-subtle { animation: bounceSubtle 2s infinite; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes bounceSubtle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+        /* 隐藏滚动条但保留滚动功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .math-text { font-family: 'JetBrains Mono', monospace; letter-spacing: -0.5px; }
+        .gauth-gradient { background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); }
+        .gauth-card-shadow { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
+
+        /* 可点击文本（Chips）的交互样式 */
+        .clickable-chip {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+            margin: 0 2px;
+            border: 2px solid transparent;
+            display: inline-block;
+            line-height: 1.4;
+        }
+        .clickable-chip:hover { background-color: #F3F4F6; transform: translateY(-1px); }
+        .clickable-chip.selected-neutral { background-color: #E0E7FF; border-color: #818CF8; color: #3730A3; }
+        .clickable-chip.selected-correct { background-color: #D1FAE5; border-color: #34D399; color: #065F46; }
+        .clickable-chip.selected-wrong { background-color: #FEE2E2; border-color: #F87171; color: #991B1B; }
+        
+        /* AI 分析时的上下扫描线动画 */
+        .scan-line {
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(255, 59, 48, 1), transparent);
+            position: absolute;
+            animation: scanLine 2s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(255, 59, 48, 0.8);
+        }
+        @keyframes scanLine {
+            0% { top: 25%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 75%; opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        /* =========================================================
+           0. 预置数据 (Demo Fallback) 
+           防止演讲时网络或 API 挂掉，提供完美兜底机制
+        ========================================================= */
+        const fallbackMockData = {
+            problemContext: {
+                title: "Statistics",
+                question_text: "The weekly salaries for a sample of normal employees are a mean of $5,000 and a standard deviation of $500. If an employee has a salary of $5,750 in a particular week, what is the z-score for this week's employee?",
+                options: ["A. 1.25", "B. 1.5", "C. 0.75", "D. 1.0"],
+                correct_answer: "1.5",
+                explanation_steps: [
+                    { title: "Identify the given values", content: "The formula is z = (x - μ) / σ\nx = $5,750\nμ = $5,000\nσ = $500" },
+                    { title: "Substitute and calculate", content: "z = (5750 - 5000) / 500\nz = 750 / 500\nz = 1.5" }
+                ]
+            },
+            teachingModeLesson: {
+                lesson_id: "lvl1", mode: "TEACHING", scaffolding_level: 1,
+                problem_context: "Calculate Z-Score",
+                steps: [
+                    {
+                        step_id: 1, goal: "Identify Numerator", interaction_type: "multiple_choice",
+                        question_display: { text: "The formula is **z = (x - μ) / σ**. \nLet's do the top part first: **x - μ**. \nWhat is **5750 - 5000**?" },
+                        interaction_data: { options: ["750", "500"], correct_index: 0 },
+                        feedback_card: { correct_message: "Good math.", explanation: "5750 - 5000 = 750.", wrong_explanation: "Subtract 5000 from 5750." }
+                    },
+                    {
+                        step_id: 2, goal: "Final Division", interaction_type: "multiple_choice",
+                        question_display: { text: "Now divide by the standard deviation (σ), which is **500**. \nWhat is **750 / 500**?" },
+                        interaction_data: { options: ["1.25", "1.5"], correct_index: 1 },
+                        feedback_card: { correct_message: "Solved!", explanation: "750 / 500 = 1.5.", wrong_explanation: "Check your division again." }
+                    }
+                ],
+                outcome_card: {
+                    visual_badge: { title: "Skill Unlocked: Z-Score", icon_concept: "puzzle-piece" },
+                    memory_hook: { core_formula: "z = (x - μ) / σ", one_liner: "Subtract the mean, then divide by standard deviation." },
+                    actions: { primary_button: { label: "Got it! Back to Solution" }, secondary_button: { label: "Practice One More (Level 2)" } }
+                }
+            },
+            practiceModeLesson: {
+                lesson_id: "lvl2", mode: "PRACTICE", scaffolding_level: 2,
+                problem_context: "Variant Problem",
+                steps: [
+                    {
+                        step_id: 1, goal: "Setup Equation", interaction_type: "multiple_choice",
+                        question_display: { text: "Let's try a variant: Mean is **80**, SD is **5**. Your score is **90**.\nWhich setup is correct for the z-score?" },
+                        interaction_data: { options: ["(80 - 90) / 5", "(90 - 80) / 5"], correct_index: 1 },
+                        feedback_card: { correct_message: "Fast!", explanation: "Always (Data Point - Mean) / Standard Deviation." }
+                    },
+                    {
+                        step_id: 2, goal: "Solve", interaction_type: "multiple_choice",
+                        question_display: { text: "Calculate: **(90 - 80) / 5**." },
+                        interaction_data: { options: ["2.0", "1.5"], correct_index: 0 },
+                        feedback_card: { correct_message: "Nailed it.", explanation: "10 / 5 = 2.0." }
+                    }
+                ],
+                outcome_card: {
+                    visual_badge: { title: "Level 2 Complete", icon_concept: "star" },
+                    memory_hook: { core_formula: "Speed & Accuracy", one_liner: "Ready for the mastery challenge?" },
+                    actions: { primary_button: { label: "Finish" }, secondary_button: { label: "Mastery Challenge (Level 3)" } }
+                }
+            },
+            masteryModeLesson: {
+                lesson_id: "lvl3", mode: "MASTERY", scaffolding_level: 3,
+                problem_context: "Speed Round",
+                steps: [
+                    {
+                        step_id: 1, goal: "Mental Math", interaction_type: "multiple_choice",
+                        question_display: { text: "Speed Round: Mean = **100**, SD = **15**, Data Point = **85**.\nWhat is the z-score?" },
+                        interaction_data: { options: ["-1.0", "1.0", "-0.5"], correct_index: 0 },
+                        feedback_card: { correct_message: "Mastered!", explanation: "-15 / 15 = -1.0." }
+                    }
+                ],
+                outcome_card: {
+                    visual_badge: { title: "Mastery Unlocked", icon_concept: "trophy" },
+                    memory_hook: { core_formula: "Expert Status", one_liner: "You can solve these instantly!" },
+                    actions: { primary_button: { label: "Done! Back to Solution" }, secondary_button: { label: "Practice Again" } }
+                }
+            }
+        };
+
+        /* =========================================================
+           1. AI API 封装 (Gemini Vision 动态解析)
+        ========================================================= */
+        const callGeminiAPI = async (base64Data, mimeType) => {
+            const apiKey = "AIzaSyAfPyJ_5gCvWPCXt8E5Zlbt7HZgwlUCw0w"; 
+            
+            // 升级至 v1 稳定版接口
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            
+            const promptText = `
+            You are an expert Math Tutor. Analyze the math problem in the provided image.
+            1. Extract the problem text and solve it step-by-step.
+            2. Generate a 3-level interactive Micro-Lesson based on the problem.
+            
+            CRITICAL INSTRUCTION: For 'interaction_type' in the lessons, ONLY use "multiple_choice". DO NOT use "clickable_text" to avoid frontend indexing errors.
+            
+            Return ONLY a valid JSON object strictly matching this schema:
+            {
+              "problemContext": {
+                "title": "Topic (e.g., Algebra, Statistics)",
+                "question_text": "Extracted full question text",
+                "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+                "correct_answer": "The correct option",
+                "explanation_steps": [
+                  { "title": "Step 1", "content": "Explanation text" },
+                  { "title": "Step 2", "content": "Explanation text" }
+                ]
+              },
+              "teachingModeLesson": {
+                "lesson_id": "lvl1", "mode": "TEACHING", "scaffolding_level": 1,
+                "problem_context": "Short summary of the original problem",
+                "steps": [
+                  {
+                    "step_id": 1, "goal": "Understand concept", "interaction_type": "multiple_choice",
+                    "question_display": { "text": "Question for user using Markdown **bold**" },
+                    "interaction_data": { "options": ["Option 1", "Option 2"], "correct_index": 0 },
+                    "feedback_card": { "correct_message": "Correct!", "explanation": "Why it's correct", "wrong_explanation": "Try again" }
+                  }
+                ],
+                "outcome_card": {
+                  "visual_badge": { "title": "Skill Unlocked", "icon_concept": "puzzle-piece" },
+                  "memory_hook": { "core_formula": "Formula", "one_liner": "Takeaway" },
+                  "actions": { "primary_button": { "label": "Back to Solution" }, "secondary_button": { "label": "Practice One More" } }
+                }
+              },
+              "practiceModeLesson": {
+                "lesson_id": "lvl2", "mode": "PRACTICE", "scaffolding_level": 2,
+                "problem_context": "A NEW variant problem with DIFFERENT numbers",
+                "steps": [ /* 2 steps testing the variant */ ],
+                "outcome_card": { "visual_badge": { "title": "Level 2 Complete", "icon_concept": "star" }, "memory_hook": {"core_formula": "...", "one_liner": "..."}, "actions": {"primary_button": {"label": "Finish"}, "secondary_button": {"label": "Mastery Challenge"}} }
+              },
+              "masteryModeLesson": {
+                "lesson_id": "lvl3", "mode": "MASTERY", "scaffolding_level": 3,
+                "problem_context": "ANOTHER NEW variant problem",
+                "steps": [ /* 1 speed test step */ ],
+                "outcome_card": { "visual_badge": { "title": "Mastery Unlocked", "icon_concept": "trophy" }, "memory_hook": {"core_formula": "...", "one_liner": "..."}, "actions": {"primary_button": {"label": "Done"}, "secondary_button": {"label": "Practice Again"}} }
+              }
+            }`;
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: promptText },
+                        { inlineData: { mimeType: mimeType, data: base64Data } }
+                    ]
+                }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    temperature: 0.2 // 降低随机性保证 JSON 格式正确
+                }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                // 更详尽的错误解析机制
+                if (!response.ok) {
+                    let realError = `HTTP ${response.status}`;
+                    try {
+                        const errData = await response.json();
+                        if (errData.error && errData.error.message) {
+                            realError = `HTTP ${response.status}: ${errData.error.message}`;
+                        }
+                    } catch(e) {}
+                    throw new Error(realError);
+                }
+                
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error('Google API 返回内容为空');
+                
+                const match = text.match(/\{[\s\S]*\}/);
+                if (!match) throw new Error('未找到有效的结构化解析数据');
+                
+                return JSON.parse(match[0]);
+            } catch (err) {
+                // 抛出带有具体上下文的错误
+                throw new Error(err.message);
+            }
+        };
+
+        /* =========================================================
+           2. 图标组件 (Icons)
+        ========================================================= */
+        const Icons = {
+            Back: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>,
+            Share: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>,
+            Sparkles: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 3.214L13 21l-2.286-6.857L5 12l5.714-3.214z" /></svg>,
+            Gallery: () => <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+        };
+
+        /* =========================================================
+           3. 视图一：极简拍照/相册入口页 (Camera View)
+        ========================================================= */
+        const CameraView = ({ onPhotoProcessed }) => {
+            const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+            const [errorMsg, setErrorMsg] = React.useState('');
+            const cameraInputRef = React.useRef(null);
+            const galleryInputRef = React.useRef(null);
+
+            // 拦截图片并调用真实 AI 接口
+            const handleFileChange = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                setIsAnalyzing(true);
+                setErrorMsg('');
+
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    // 提取 Base64 数据部分
+                    const base64String = reader.result.split(',')[1];
+                    const mimeType = file.type;
+                    
+                    try {
+                        const parsedData = await callGeminiAPI(base64String, mimeType);
+                        setIsAnalyzing(false);
+                        onPhotoProcessed(parsedData);
+                    } catch (err) {
+                        setIsAnalyzing(false);
+                        // 输出真实报错，并显示兜底按钮
+                        setErrorMsg(err.message);
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+
+            return (
+                <div className="flex flex-col h-full w-full bg-[#1C1C1E] text-white relative fade-in">
+                    
+                    {/* AI 识别时的扫描动画遮罩 */}
+                    {isAnalyzing && (
+                        <div className="absolute inset-0 bg-black/85 z-50 flex flex-col items-center justify-center fade-in backdrop-blur-sm">
+                            <div className="scan-line"></div>
+                            <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                            <p className="text-xl font-bold tracking-widest animate-pulse text-white">Analyzing...</p>
+                            <p className="text-sm text-gray-400 mt-2">AI 正在深度解析题目结构</p>
+                        </div>
+                    )}
+
+                    {/* 🔥 终极防灾设计：如果报错，弹窗中附带“使用预置数据”直接绕过报错的功能 */}
+                    {errorMsg && (
+                        <div className="absolute top-10 left-4 right-4 bg-red-500/95 text-white p-5 rounded-2xl z-50 text-sm font-medium text-center backdrop-blur-md shadow-2xl fade-in flex flex-col gap-4">
+                            <div><i className="fas fa-exclamation-triangle mr-2"></i> {errorMsg}</div>
+                            <div className="text-xs opacity-80 border-t border-white/20 pt-2 pb-1">
+                                可能是本地网络代理导致了连接失败，建议为此次演示使用保底数据。
+                            </div>
+                            <div className="flex flex-col sm:flex-row justify-center gap-3">
+                                <button onClick={() => onPhotoProcessed(fallbackMockData)} className="flex-1 py-2.5 bg-white text-red-600 font-bold rounded-xl hover:bg-gray-50 transition shadow-sm active:scale-95">
+                                    使用预置题目继续 Demo
+                                </button>
+                                <button onClick={() => setErrorMsg('')} className="py-2.5 px-4 bg-black/20 rounded-xl hover:bg-black/30 transition active:scale-95">
+                                    关闭
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 隐藏的原生文件选择器 */}
+                    <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
+                    <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleFileChange} />
+
+                    {/* 中间取景框与对焦提示 */}
+                    <div className="flex-1 flex flex-col items-center justify-center relative">
+                        <div className="absolute w-72 h-48 sm:h-64 border-[rgba(255,255,255,0.1)]">
+                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white/80 rounded-tl-xl"></div>
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white/80 rounded-tr-xl"></div>
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white/80 rounded-bl-xl"></div>
+                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white/80 rounded-br-xl"></div>
+                        </div>
+                        <div className="text-5xl text-white/30 font-thin">+</div>
+                    </div>
+
+                    {/* 底部极简操作栏：仅相册 & 拍照 */}
+                    <div className="h-40 bg-[#1C1C1E] flex items-center justify-center relative pb-8">
+                        <button 
+                            onClick={() => galleryInputRef.current.click()} 
+                            className="absolute left-10 p-4 hover:bg-white/10 rounded-full transition-colors"
+                        >
+                            <Icons.Gallery />
+                        </button>
+                        
+                        <button 
+                            onClick={() => cameraInputRef.current.click()} 
+                            className="relative flex justify-center items-center group active:scale-95 transition-transform"
+                        >
+                            <div className="w-[80px] h-[80px] rounded-full border-[4px] border-white flex items-center justify-center">
+                                <div className="w-[64px] h-[64px] bg-[#FF3B30] rounded-full group-hover:bg-[#ff4f44] transition-colors"></div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        /* =========================================================
+           4. 视图二：拍搜结果页 (Result View)
+        ========================================================= */
+        const ResultView = ({ data, onStartLesson, onBackToCamera }) => {
+            const context = data.problemContext;
+            
+            return (
+                <div className="flex flex-col h-full bg-white relative fade-in">
+                    <div className="bg-white z-10 px-4 py-3 flex justify-between items-center shadow-sm shrink-0">
+                        <button onClick={onBackToCamera} className="p-2 -ml-2 text-gray-600 hover:bg-gray-50 rounded-full transition-colors"><Icons.Back /></button>
+                        <span className="font-bold text-gray-800">{context.title || 'Questions'}</span>
+                        <button className="p-2 -mr-2 text-gray-600 hover:bg-gray-50 rounded-full transition-colors"><Icons.Share /></button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto no-scrollbar pb-4 relative">
+                        {/* 动态识别出的原题展示区 */}
+                        <div className="w-full bg-[#f8f9fa] p-5 flex flex-col items-center border-b border-gray-100">
+                            <div className="w-full max-w-md bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-2">
+                                <div className="text-gray-800 text-[15px] mb-5 font-medium leading-relaxed">
+                                    {context.question_text}
+                                </div>
+                                {context.options && context.options.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {context.options.map((opt, i) => {
+                                            const isCorrect = opt.includes(context.correct_answer) || opt === context.correct_answer;
+                                            return (
+                                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-transparent'}`}>
+                                                    <div className={`w-6 h-6 shrink-0 rounded-full border flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-green-500 border-green-500 text-white' : 'border-gray-400 text-gray-400'}`}>
+                                                        {String.fromCharCode(65+i)}
+                                                    </div>
+                                                    <span className={`font-mono text-sm ${isCorrect ? 'text-green-800 font-bold' : 'text-gray-600'}`}>{opt}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 动态答案与解析 */}
+                        <div className="p-5 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold border border-red-100">
+                                        <i className="fas fa-bolt"></i> Gauth AI
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h2 className="text-gray-500 font-medium text-sm mb-1">Answer</h2>
+                                <div className="text-xl font-bold text-gray-900">
+                                    The answer is <span className="text-indigo-600 font-mono">{context.correct_answer}</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h2 className="text-gray-500 font-medium text-sm mb-4">Explanation</h2>
+                                <div className="pl-4 border-l-2 border-gray-200 space-y-5">
+                                    {context.explanation_steps && context.explanation_steps.map((step, i) => (
+                                        <div key={i}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">{i+1}</span>
+                                                <span className="font-bold text-gray-800 text-sm">{step.title}</span>
+                                            </div>
+                                            <p className="text-gray-600 text-sm leading-relaxed mb-2 whitespace-pre-line">{step.content}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* ⭐ 微课入口卡片 (Walk me through) ⭐ */}
+                            <div className="mt-8 scale-in transform transition-all pb-4">
+                                <div 
+                                    onClick={onStartLesson}
+                                    className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 gauth-card-shadow cursor-pointer group"
+                                >
+                                    <div className="absolute top-0 left-0 w-1 h-full gauth-gradient"></div>
+                                    <div className="p-5 flex items-center justify-between relative z-10">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg">
+                                                    <Icons.Sparkles />
+                                                </span>
+                                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">Interactive Lesson</span>
+                                            </div>
+                                            <h3 className="font-bold text-gray-900 text-lg group-hover:text-indigo-600 transition-colors">
+                                                Confused? Walk through it.
+                                            </h3>
+                                            <p className="text-gray-500 text-sm mt-1">
+                                                Don't just copy. Understand the "why" step-by-step.
+                                            </p>
+                                        </div>
+                                        <div className="ml-4 bg-indigo-50 p-3 rounded-full group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fas fa-play text-indigo-600 ml-1 translate-x-0.5"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        /* =========================================================
+           5. 视图三：互动微课播放器 (Lesson View)
+        ========================================================= */
+        const LessonView = ({ activeLesson, onBack, onPracticeNext }) => {
+            const [currentStepIndex, setCurrentStepIndex] = React.useState(0);
+            const [feedback, setFeedback] = React.useState(null);
+            const [selectedOption, setSelectedOption] = React.useState(null);
+            const [selectedTextIndices, setSelectedTextIndices] = React.useState([]); 
+            const [isCompleted, setIsCompleted] = React.useState(false);
+
+            if (!activeLesson || !activeLesson.steps || activeLesson.steps.length === 0) {
+                 return <div className="p-10 text-center">Lesson data error...</div>;
+            }
+
+            const currentStep = activeLesson.steps[currentStepIndex] || activeLesson.steps[0];
+            const totalSteps = activeLesson.steps.length;
+
+            const handleNext = () => {
+                if (currentStepIndex < totalSteps - 1) {
+                    setCurrentStepIndex(prev => prev + 1);
+                    setFeedback(null);
+                    setSelectedOption(null);
+                } else {
+                    setIsCompleted(true);
+                }
+            };
+
+            const handleOptionClick = (index) => {
+                if (feedback === 'correct') return; 
+                setSelectedOption(index);
+                if (index === currentStep.interaction_data.correct_index) setFeedback('correct');
+                else setFeedback('wrong');
+            };
+
+            const parseMarkdown = (text) => {
+                if(!text) return "";
+                return text.split(/(\*\*.*?\*\*)/g).map((part, i) => 
+                    (part.startsWith('**') && part.endsWith('**')) 
+                    ? <span key={i} className="font-bold text-gray-900 bg-yellow-50 px-1 rounded">{part.slice(2, -2)}</span> 
+                    : part
+                );
+            };
+
+            // 答题全部完成后的 Outcome 结算页
+            if (isCompleted) {
+                const outcome = activeLesson.outcome_card || {};
+                const visual = outcome.visual_badge || { title: "Complete", icon_concept: "star" };
+                const memory = outcome.memory_hook || { core_formula: "Great Job", one_liner: "Keep going!" };
+                const acts = outcome.actions || { primary_button: {label: "Back"}, secondary_button: {label: "Next"} };
+                
+                return (
+                    <div className="h-full bg-white flex flex-col items-center p-6 fade-in text-center relative overflow-hidden">
+                         <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-indigo-50 to-white -z-10"></div>
+                         
+                         <div className="mt-12 mb-8 relative bounce-subtle">
+                            <div className="w-24 h-24 bg-white rounded-2xl shadow-xl flex items-center justify-center border border-indigo-50 relative z-10 transform rotate-3">
+                                <i className={`fas fa-${visual.icon_concept === 'puzzle-piece' ? 'puzzle-piece' : (visual.icon_concept === 'trophy' ? 'trophy' : 'star')} text-4xl text-indigo-500`}></i>
+                            </div>
+                            <div className="absolute -top-4 -right-4 text-yellow-400 text-2xl animate-pulse"><i className="fas fa-star"></i></div>
+                            <div className="absolute -bottom-2 -left-4 text-indigo-300 text-xl"><i className="fas fa-sparkles"></i></div>
+                         </div>
+
+                         <h2 className="text-sm font-bold text-indigo-600 uppercase tracking-widest mb-2 opacity-80">Skill Unlocked</h2>
+                         <h1 className="text-2xl font-bold text-gray-900 mb-8">{visual.title}</h1>
+
+                         <div className="w-full bg-[#1e1b4b] rounded-2xl p-6 text-white shadow-xl mb-auto transform transition-all hover:scale-105 duration-300">
+                            <div className="flex items-center gap-2 mb-4 opacity-70">
+                                <i className="fas fa-lightbulb text-yellow-300"></i>
+                                <span className="text-xs font-bold uppercase tracking-wider">Key Takeaway</span>
+                            </div>
+                            <div className="text-xl font-mono font-bold mb-4 pb-4 border-b border-white/10">
+                                {memory.core_formula}
+                            </div>
+                            <p className="text-indigo-100 text-sm leading-relaxed font-medium">
+                                {memory.one_liner}
+                            </p>
+                         </div>
+
+                         <div className="w-full mt-8 space-y-4 pb-8">
+                             <button onClick={onBack} className="w-full py-4 bg-indigo-600 text-white rounded-full font-bold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
+                                {acts.primary_button.label}
+                             </button>
+                             
+                             <button onClick={onPracticeNext} className="w-full py-4 bg-white text-gray-700 border-2 border-gray-100 rounded-full font-bold text-lg hover:bg-gray-50 transition-all active:scale-95">
+                                {acts.secondary_button.label}
+                             </button>
+                         </div>
+                    </div>
+                );
+            }
+
+            // 互动答题主视图
+            return (
+                <div className="flex flex-col h-full bg-white relative fade-in">
+                    <div className="px-4 py-4 flex items-center justify-between border-b border-gray-100 bg-white z-10 shrink-0">
+                        <button onClick={onBack} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                            <i className="fas fa-times"></i>
+                        </button>
+                        <div className="flex-1 mx-4">
+                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500 transition-all duration-300" style={{width: `${((currentStepIndex + 1) / totalSteps) * 100}%`}}></div>
+                            </div>
+                        </div>
+                        <span className="text-xs font-bold text-gray-400 font-mono">{currentStepIndex + 1}/{totalSteps}</span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-5 pb-52">
+                        {activeLesson.scaffolding_level > 1 && (
+                            <div className="mb-4 inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100">
+                                <i className="fas fa-layer-group"></i> 
+                                {activeLesson.scaffolding_level === 2 ? 'Guided Practice (Level 2)' : 'Mastery Check (Level 3)'}
+                            </div>
+                        )}
+                        <div className="text-xl text-gray-800 mb-8 font-medium leading-loose slide-up bg-gray-50 p-5 rounded-2xl border border-gray-100 shadow-inner">
+                            {parseMarkdown(currentStep.question_display?.text)}
+                        </div>
+
+                        <div className="slide-up" style={{animationDelay: '0.1s'}}>
+                            {/* AI 生成的步骤统一强制使用 multiple_choice 保证稳定性 */}
+                            <div className="space-y-3">
+                                {currentStep.interaction_data?.options?.map((option, idx) => (
+                                    <button key={idx} onClick={() => handleOptionClick(idx)} disabled={feedback === 'correct'}
+                                        className={`w-full p-4 rounded-xl text-left border-2 flex justify-between items-center transition-all shadow-sm ${
+                                            selectedOption === idx 
+                                            ? (feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-900' : 'border-red-400 bg-red-50 text-red-900') 
+                                            : 'border-gray-100 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50'
+                                        }`}
+                                    >
+                                        <span className="font-bold font-mono text-lg">{option}</span>
+                                        {selectedOption === idx && feedback === 'correct' && <i className="fas fa-check-circle text-green-500 text-xl"></i>}
+                                        {selectedOption === idx && feedback === 'wrong' && <i className="fas fa-times-circle text-red-500 text-xl"></i>}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20 rounded-b-[40px] sm:rounded-b-[55px]">
+                        <div className="min-h-[80px] mb-2 flex items-center justify-center">
+                            {feedback ? (
+                                <div className={`w-full flex items-start gap-3 fade-in ${feedback === 'correct' ? 'text-green-700' : 'text-red-600'}`}>
+                                    <i className={`fas ${feedback === 'correct' ? 'fa-check-circle' : 'fa-exclamation-circle'} text-2xl mt-0.5 shrink-0`}></i>
+                                    <div className="text-left">
+                                        <p className="font-bold text-lg">{feedback === 'correct' ? (currentStep.feedback_card?.correct_message || "Correct!") : "Not quite"}</p>
+                                        <p className="text-sm opacity-90 leading-snug mt-1">
+                                            {feedback === 'correct' ? parseMarkdown(currentStep.feedback_card?.explanation) : (currentStep.feedback_card?.wrong_explanation || "Try another option.")}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center text-gray-400 text-sm">
+                                    Select the best option above
+                                </div>
+                            )}
+                        </div>
+
+                        <button 
+                            onClick={handleNext} 
+                            disabled={feedback !== 'correct'}
+                            className={`w-full py-4 rounded-full font-bold text-lg transition-all flex items-center justify-center gap-2 ${
+                                feedback === 'correct' 
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 transform hover:-translate-y-1' 
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                        >
+                            <span>Continue</span>
+                            {feedback === 'correct' && <i className="fas fa-arrow-right fade-in"></i>}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        /* =========================================================
+           6. 根应用状态管理 (Main App Route)
+        ========================================================= */
+        const App = () => {
+            const [view, setView] = React.useState('camera'); 
+            const [appData, setAppData] = React.useState(null); 
+            const [activeLesson, setActiveLesson] = React.useState(null);
+            const [lessonKey, setLessonKey] = React.useState(0);
+
+            // 相机处理完成，保存动态数据并进入结果页
+            const handlePhotoProcessed = (data) => {
+                setAppData(data);
+                setView('result');
+            };
+
+            const handleBackToCamera = () => {
+                setView('camera');
+                setAppData(null); 
+            };
+
+            // 启动教学模式微课
+            const handleStartLesson = () => {
+                if(appData && appData.teachingModeLesson) {
+                    setActiveLesson(appData.teachingModeLesson);
+                    setLessonKey(prev => prev + 1);
+                    setView('lesson');
+                }
+            };
+
+            // 动态推进脚手架难度 (Level 1 -> 2 -> 3 -> 2)
+            const handlePracticeNext = () => {
+                let nextLesson;
+                if (activeLesson.scaffolding_level === 1) {
+                    nextLesson = appData.practiceModeLesson;
+                } else if (activeLesson.scaffolding_level === 2) {
+                    nextLesson = appData.masteryModeLesson;
+                } else {
+                    nextLesson = appData.practiceModeLesson; 
+                }
+                
+                if(nextLesson) {
+                    setActiveLesson({...nextLesson});
+                    setLessonKey(prev => prev + 1);
+                }
+            };
+
+            const handleBackToResult = () => {
+                setView('result');
+            };
+
+            return (
+                <div className="relative w-full h-full overflow-hidden bg-black">
+                    {view === 'camera' && <CameraView onPhotoProcessed={handlePhotoProcessed} />}
+                    {view === 'result' && appData && <ResultView data={appData} onStartLesson={handleStartLesson} onBackToCamera={handleBackToCamera} />}
+                    {view === 'lesson' && activeLesson && (
+                        <LessonView 
+                            key={lessonKey}
+                            activeLesson={activeLesson} 
+                            onBack={handleBackToResult} 
+                            onPracticeNext={handlePracticeNext}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
